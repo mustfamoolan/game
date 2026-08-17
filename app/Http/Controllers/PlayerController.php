@@ -27,16 +27,27 @@ class PlayerController extends Controller
         $token = Str::random(60);
 
         Player::create([
-            'nickname' => $request->nickname,
-            'avatar_type' => $request->avatar_type,
+            'nickname'     => $request->nickname,
+            'avatar_type'  => $request->avatar_type,
             'avatar_value' => $request->avatar_value,
             'session_token' => $token,
         ]);
 
-        // Save token in cookie for 1 year (525,600 minutes)
-        Cookie::queue('player_session', $token, 525600);
+        // Cookie for 1 year (525,600 minutes) — explicitly set for mobile browser compatibility
+        // SameSite=Lax works on both Android Chrome and iOS Safari
+        $cookie = cookie(
+            name:     'player_session',
+            value:    $token,
+            minutes:  525600,
+            path:     '/',
+            domain:   null,
+            secure:   app()->environment('production'), // true on production (HTTPS)
+            httpOnly: true,
+            raw:      false,
+            sameSite: 'Lax',
+        );
 
-        return redirect()->route('play');
+        return redirect()->route('play')->withCookie($cookie);
     }
 
     /**
