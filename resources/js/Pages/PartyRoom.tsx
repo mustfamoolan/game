@@ -230,18 +230,6 @@ export default function PartyRoom({ party, currentPlayer }: PartyRoomProps) {
                     </div>
                 </div>
 
-                {/* Developer Simulation Button (Floating bottom-left) */}
-                <div className="absolute bottom-4 left-4 z-50">
-                    <button
-                        type="button"
-                        onClick={() => router.post(`/parties/${party.code}/simulate`, {})}
-                        className="size-10 p-0 rounded-full bg-amber-500 hover:bg-amber-600 border border-amber-400 text-white shadow-lg flex items-center justify-center transition duration-150 text-base"
-                        title="محاكاة 7 لاعبين للتجربة"
-                    >
-                        🤖
-                    </button>
-                </div>
-
             </div>
         </>
     );
