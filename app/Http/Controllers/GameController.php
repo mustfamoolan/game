@@ -92,23 +92,49 @@ class GameController extends Controller
 
     /**
      * Called by PartyController@start — selects 20 questions, stores them, redirects to game.
-     * (invoked internally, not via route)
      */
     public static function initGame(Party $party): void
     {
-        $categoryIds = $party->categories->pluck('id')->toArray();
+        // 1. Delete any old party questions
+        DB::table('party_questions')->where('party_id', $party->id)->delete();
 
-        // Pick 20 random questions from the party's categories
+        $categoryIds = $party->categories->pluck('id')->toArray();
+        if (empty($categoryIds)) {
+            $categoryIds = Category::pluck('id')->toArray();
+        }
+
+        // 2. Pick up to 20 questions from selected categories
         $questions = Question::whereIn('category_id', $categoryIds)
             ->inRandomOrder()
             ->limit(20)
             ->get();
 
-        // Insert into party_questions
-        foreach ($questions as $i => $q) {
-            DB::table('party_questions')->insertOrIgnore([
+        $questionIds = $questions->pluck('id')->toArray();
+
+        // 3. If fewer than 20, fill up from all categories
+        if (count($questionIds) < 20) {
+            $remainingNeeded = 20 - count($questionIds);
+            $extraQuestions = Question::whereNotIn('id', $questionIds)
+                ->inRandomOrder()
+                ->limit($remainingNeeded)
+                ->pluck('id')
+                ->toArray();
+            $questionIds = array_merge($questionIds, $extraQuestions);
+        }
+
+        // 4. If still fewer than 20 (DB has few total questions), duplicate existing to guarantee 20
+        while (count($questionIds) < 20 && count($questionIds) > 0) {
+            $questionIds[] = $questionIds[array_rand($questionIds)];
+        }
+
+        // Slice to 20
+        $questionIds = array_slice($questionIds, 0, 20);
+
+        // Insert 20 questions with 1..20 order
+        foreach ($questionIds as $i => $qId) {
+            DB::table('party_questions')->insert([
                 'party_id'    => $party->id,
-                'question_id' => $q->id,
+                'question_id' => $qId,
                 'order'       => $i + 1,
                 'created_at'  => now(),
                 'updated_at'  => now(),
@@ -119,6 +145,9 @@ class GameController extends Controller
             'status'                  => 'playing',
             'current_question_index'  => 1,
             'question_started_at'     => now(),
+            'decisive_phase'          => null,
+            'decisive_difficulty'     => null,
+            'decisive_question_id'    => null,
         ]);
     }
 
@@ -940,34 +969,8 @@ class GameController extends Controller
         // 1. Clear all player answers for this party
         PlayerAnswer::where('party_id', $party->id)->delete();
 
-        // 2. Select 20 new random questions from categories
-        DB::table('party_questions')->where('party_id', $party->id)->delete();
-
-        $categoryIds = $party->categories->pluck('id')->toArray();
-        $questions = Question::whereIn('category_id', $categoryIds)
-            ->inRandomOrder()
-            ->limit(20)
-            ->get();
-
-        foreach ($questions as $idx => $q) {
-            DB::table('party_questions')->insert([
-                'party_id'    => $party->id,
-                'question_id' => $q->id,
-                'order'       => $idx + 1,
-                'created_at'  => now(),
-                'updated_at'  => now(),
-            ]);
-        }
-
-        // 3. Reset party columns to start fresh
-        $party->update([
-            'status'                 => 'playing',
-            'current_question_index' => 1,
-            'question_started_at'    => now(),
-            'decisive_phase'         => null,
-            'decisive_difficulty'    => null,
-            'decisive_question_id'   => null,
-        ]);
+        // 2. Re-initialize 20 guaranteed questions and reset party state
+        self::initGame($party);
 
         return redirect()->route('game.question', $code);
     }
