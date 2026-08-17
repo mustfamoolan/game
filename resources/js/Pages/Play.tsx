@@ -179,6 +179,49 @@ export default function Play({ player, publicParties, categories }: PlayProps) {
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // PWA Install State
+    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+    const [isInstallable, setIsInstallable] = useState(false);
+    const [isIos, setIsIos] = useState(false);
+    const [isAlreadyInstalled, setIsAlreadyInstalled] = useState(false);
+    const [isIosInstructionsOpen, setIsIosInstructionsOpen] = useState(false);
+
+    useEffect(() => {
+        const handleBeforeInstallPrompt = (e: Event) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+            setIsInstallable(true);
+        };
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+        // Check iOS
+        const userAgent = window.navigator.userAgent.toLowerCase();
+        const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+        const isStandaloneApp = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+        
+        setIsIos(isIosDevice && !isStandaloneApp);
+        setIsAlreadyInstalled(isStandaloneApp);
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        };
+    }, []);
+
+    const handleInstallClick = () => {
+        if (isInstallable && deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult: any) => {
+                if (choiceResult.outcome === 'accepted') {
+                    setIsAlreadyInstalled(true);
+                }
+                setDeferredPrompt(null);
+                setIsInstallable(false);
+            });
+        } else if (isIos) {
+            setIsIosInstructionsOpen(true);
+        }
+    };
+
     // Join modal state
     const [isJoinOpen, setIsJoinOpen] = useState(false);
     const [joinError, setJoinError] = useState('');
@@ -292,6 +335,28 @@ export default function Play({ player, publicParties, categories }: PlayProps) {
         <>
             <Head title="ساحة اللعب - لعبة أسئلة" />
             <div className="min-h-screen flex flex-col bg-[#ecf7f1] select-none font-sans relative overflow-hidden" dir="rtl">
+
+                {/* PWA Install Top Banner */}
+                {!isAlreadyInstalled && (isInstallable || isIos) && (
+                    <div className="relative z-20 w-full max-w-sm mx-auto px-4 pt-4 shrink-0">
+                        <div className="bg-emerald-600 text-white rounded-xl p-3 flex items-center justify-between shadow-sm border border-emerald-700">
+                            <div className="flex items-center gap-2">
+                                <span className="text-2xl shrink-0">📲</span>
+                                <div className="text-right">
+                                    <p className="text-xs font-bold">تثبيت التطبيق على الهاتف</p>
+                                    <p className="text-[10px] text-emerald-100 font-medium">لتجربة لعب أسرع ودخول فوري للجيم!</p>
+                                </div>
+                            </div>
+                            <Button
+                                onClick={handleInstallClick}
+                                size="sm"
+                                className="h-8 bg-white hover:bg-slate-50 text-emerald-700 font-black rounded-lg text-[10px] px-3 shadow"
+                            >
+                                تثبيت الآن ⚡
+                            </Button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Background spots */}
                 <div className="absolute top-[-10%] left-[-10%] w-[380px] h-[380px] bg-[#d5ede0] rounded-full blur-[100px] opacity-70 pointer-events-none" />
@@ -540,6 +605,56 @@ export default function Play({ player, publicParties, categories }: PlayProps) {
                     </DialogContent>
                 </Dialog>
 
+                {/* ====== iOS INSTALL INSTRUCTIONS MODAL ====== */}
+                <Dialog open={isIosInstructionsOpen} onOpenChange={setIsIosInstructionsOpen}>
+                    <DialogContent className="max-w-sm bg-white border border-slate-200 text-slate-900 rounded-xl p-5 shadow-lg select-none" dir="rtl">
+                        <DialogHeader className="text-right pb-3 border-b border-slate-100">
+                            <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
+                                📱 تثبيت التطبيق على الآيفون (iOS)
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-slate-500 mt-1">
+                                اتبع الخطوات البسيطة التالية لإضافة اللعبة لشاشتك الرئيسية:
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="py-4 space-y-4 text-xs font-semibold text-slate-700 leading-relaxed">
+                            <div className="flex items-start gap-3">
+                                <span className="size-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-800 shrink-0">1</span>
+                                <p className="pt-0.5">
+                                    افتح موقع اللعبة باستخدام متصفح <span className="text-slate-950 font-extrabold">Safari</span> حصراً.
+                                </p>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <span className="size-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-800 shrink-0">2</span>
+                                <p className="pt-0.5">
+                                    اضغط على زر المشاركة <span className="text-lg">⎙</span> أو <span className="text-slate-950 font-extrabold">Share</span> في شريط المتصفح السفلي (أو العلوي للآيباد).
+                                </p>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <span className="size-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-800 shrink-0">3</span>
+                                <p className="pt-0.5">
+                                    مرر الخيارات لأسفل واضغط على <span className="text-slate-950 font-extrabold">"إضافة إلى الصفحة الرئيسية"</span> أو <span className="text-slate-950 font-extrabold">"Add to Home Screen"</span>.
+                                </p>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <span className="size-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-800 shrink-0">4</span>
+                                <p className="pt-0.5">
+                                    اضغط على <span className="text-emerald-600 font-extrabold">"إضافة"</span> أو <span className="text-emerald-600 font-extrabold">"Add"</span> في الزاوية العلوية اليمنى للتثبيت.
+                                </p>
+                            </div>
+                        </div>
+
+                        <DialogFooter className="pt-3 border-t border-slate-100">
+                            <Button
+                                onClick={() => setIsIosInstructionsOpen(false)}
+                                className="w-full h-10 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg"
+                            >
+                                حسناً، سأقوم بالتثبيت 👍
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
                 {/* ====== SETTINGS MODAL ====== */}
                 <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
                     <DialogContent className="max-w-sm bg-white border border-slate-200 text-slate-900 rounded-lg p-5 shadow-lg select-none" dir="rtl">
@@ -604,6 +719,19 @@ export default function Play({ player, publicParties, categories }: PlayProps) {
                                     </div>
                                 )}
                             </div>
+
+                            {/* PWA Install Button in Settings */}
+                            {!isAlreadyInstalled && (isInstallable || isIos) && (
+                                <div className="pt-3 border-t border-slate-100">
+                                    <Button
+                                        type="button"
+                                        onClick={handleInstallClick}
+                                        className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center gap-2"
+                                    >
+                                        📲 تثبيت التطبيق على الهاتف
+                                    </Button>
+                                </div>
+                            )}
 
                             <DialogFooter className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                                 <DialogClose asChild>
