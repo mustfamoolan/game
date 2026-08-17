@@ -61,7 +61,7 @@ export default function Vote({ party, currentPlayer, players, myVote, myBet, vot
                     }
                 }
             });
-        }, 1500);
+        }, 3500);
         return () => { if (pollRef.current) clearInterval(pollRef.current); };
     }, []);
 

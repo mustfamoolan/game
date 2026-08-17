@@ -972,18 +972,27 @@ class GameController extends Controller
         return redirect()->route('game.question', $code);
     }
 
-    /** POST /game/{code}/terminate — leader ends the game when closing browser tab */
-    public function terminate(string $code)
+    /** POST /game/{code}/terminate — leader ends the game */
+    public function terminate(Request $request, string $code)
     {
         $res = $this->partyWithPlayer($code);
-        if (!$res) return response()->json(['success' => false]);
+        if (!$res) {
+            if ($request->wantsJson() && !$request->header('X-Inertia')) {
+                return response()->json(['success' => false]);
+            }
+            return redirect('/play');
+        }
         [$party, $player] = $res;
 
         if ($party->leader_id === $player->id) {
             $party->update(['status' => 'finished']);
         }
 
-        return response()->json(['success' => true]);
+        if ($request->wantsJson() && !$request->header('X-Inertia')) {
+            return response()->json(['success' => true]);
+        }
+
+        return redirect('/play');
     }
 }
 

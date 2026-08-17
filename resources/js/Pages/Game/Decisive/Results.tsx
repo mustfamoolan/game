@@ -81,7 +81,7 @@ export default function DecisiveResults({
                     }
                 }
             });
-        }, 1500);
+        }, 3500);
         return () => clearInterval(interval);
     }, [party.code]);
 

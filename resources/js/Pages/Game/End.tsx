@@ -46,22 +46,25 @@ export default function End({ party, currentPlayer, rankings }: EndProps) {
     const second   = rankings[1] ?? null;
     const third    = rankings[2] ?? null;
 
-    // When the leader closes the tab/browser, terminate the party
+    // Poll party status to detect when the leader clicks "Play Again"
     useEffect(() => {
-        if (!isLeader) return;
-        const handleUnload = () => {
-            navigator.sendBeacon(`/game/${party.code}/terminate`);
-        };
-        window.addEventListener('beforeunload', handleUnload);
-        return () => window.removeEventListener('beforeunload', handleUnload);
-    }, [isLeader, party.code]);
+        const interval = setInterval(() => {
+            router.reload({
+                only: ['party'],
+                onSuccess: (page) => {
+                    const p = page.props.party as { status: string };
+                    if (p && p.status === 'playing') {
+                        router.visit(`/game/${party.code}`);
+                    }
+                }
+            });
+        }, 3500);
+        return () => clearInterval(interval);
+    }, [party.code]);
 
     const handleExit = () => {
         if (isLeader) {
-            // Terminate the party then go to play
-            router.post(`/game/${party.code}/terminate`, {}, {
-                onFinish: () => router.visit('/play'),
-            });
+            router.post(`/game/${party.code}/terminate`);
         } else {
             router.visit('/play');
         }

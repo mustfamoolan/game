@@ -87,7 +87,7 @@ export default function Results({
         return () => clearInterval(timer);
     }, [question.id]);
 
-    // Unified Polling & Countdown sync (every 1.5s for instant updates)
+    // Unified Polling & Countdown sync (every 3.5s for updates)
     useEffect(() => {
         const interval = setInterval(() => {
             router.reload({
@@ -97,6 +97,10 @@ export default function Results({
                     // If decisive phase kicked in, go to decisive vote page
                     if ((partyData as any).status === 'decisive') {
                         router.visit(`/game/${party.code}/decisive/vote`);
+                        return;
+                    }
+                    if ((partyData as any).status === 'finished') {
+                        router.visit(`/game/${party.code}/end`);
                         return;
                     }
                     // If the index changed, redirect to the next question page
