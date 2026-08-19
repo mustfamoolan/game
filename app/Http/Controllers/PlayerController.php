@@ -41,7 +41,7 @@ class PlayerController extends Controller
             minutes:  525600,
             path:     '/',
             domain:   null,
-            secure:   app()->environment('production'), // true on production (HTTPS)
+            secure:   request()->secure(), // true if HTTPS, false if HTTP
             httpOnly: true,
             raw:      false,
             sameSite: 'Lax',

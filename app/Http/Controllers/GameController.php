@@ -1022,24 +1022,38 @@ class GameController extends Controller
     public function buzz(Request $request, string $code)
     {
         $res = $this->partyWithPlayer($code);
-        if (!$res) return response()->json(['error' => 'Unauthorized'], 401);
+        if (!$res) {
+            if ($request->wantsJson() && !$request->header('X-Inertia')) {
+                return response()->json(['error' => 'Unauthorized'], 401);
+            }
+            return redirect('/');
+        }
         [$party, $player] = $res;
 
         if ($party->game_type !== 'buzzer') {
-            return response()->json(['error' => 'Not a buzzer game'], 400);
+            if ($request->wantsJson() && !$request->header('X-Inertia')) {
+                return response()->json(['error' => 'Not a buzzer game'], 400);
+            }
+            return back();
         }
 
         // Leader cannot buzz
         if ($party->leader_id === $player->id) {
-            return response()->json(['error' => 'Leader cannot buzz'], 400);
+            if ($request->wantsJson() && !$request->header('X-Inertia')) {
+                return response()->json(['error' => 'Leader cannot buzz'], 400);
+            }
+            return back();
         }
 
         // Check if already buzzed
         if ($party->buzzed_player_id !== null) {
-            return response()->json([
-                'success' => false,
-                'buzzed_player_id' => $party->buzzed_player_id,
-            ]);
+            if ($request->wantsJson() && !$request->header('X-Inertia')) {
+                return response()->json([
+                    'success' => false,
+                    'buzzed_player_id' => $party->buzzed_player_id,
+                ]);
+            }
+            return back();
         }
 
         // Set the buzzer
@@ -1047,10 +1061,14 @@ class GameController extends Controller
             'buzzed_player_id' => $player->id,
         ]);
 
-        return response()->json([
-            'success' => true,
-            'buzzed_player_id' => $player->id,
-        ]);
+        if ($request->wantsJson() && !$request->header('X-Inertia')) {
+            return response()->json([
+                'success' => true,
+                'buzzed_player_id' => $player->id,
+            ]);
+        }
+
+        return back();
     }
 
     /**
