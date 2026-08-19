@@ -26,7 +26,7 @@ class GameController extends Controller
         if (!$player) return null;
 
         $party = Party::where('code', $code)
-            ->with(['players', 'categories'])
+            ->with(['players', 'categories', 'buzzedPlayer'])
             ->first();
         if (!$party) return null;
 
@@ -148,6 +148,7 @@ class GameController extends Controller
             'decisive_phase'          => null,
             'decisive_difficulty'     => null,
             'decisive_question_id'    => null,
+            'buzzed_player_id'        => null,
         ]);
     }
 
@@ -233,6 +234,14 @@ class GameController extends Controller
                 'code'      => $party->code,
                 'leader_id' => $party->leader_id,
                 'status'    => $party->status,
+                'game_type' => $party->game_type,
+                'buzzed_player_id' => $party->buzzed_player_id,
+                'buzzed_player' => $party->buzzedPlayer ? [
+                    'id'           => $party->buzzedPlayer->id,
+                    'nickname'     => $party->buzzedPlayer->nickname,
+                    'avatar_type'  => $party->buzzedPlayer->avatar_type,
+                    'avatar_value' => $party->buzzedPlayer->avatar_value,
+                ] : null,
                 'current_question_index' => $idx,
                 'total_questions'        => $totalQuestions,
                 'question_started_at'    => $party->question_started_at,
@@ -249,6 +258,7 @@ class GameController extends Controller
                 'image_path'     => $question->image_path,
                 'choices'        => $question->choices,
                 'category_name'  => $question->category->name ?? '',
+                'correct_answer' => $party->leader_id === $player->id ? $question->correct_answer : null,
             ],
             'myAnswer'   => $myAnswer ? [
                 'answer_text' => $myAnswer->answer_text,
@@ -285,7 +295,9 @@ class GameController extends Controller
             ->toArray();
 
         $bet = $request->bet_points;
-        if (!$bet || in_array($bet, $usedBets)) {
+        if ($party->game_type === 'traditional') {
+            $bet = 10;
+        } elseif (!$bet || in_array($bet, $usedBets)) {
             // Auto-pick lowest available
             for ($i = 1; $i <= 20; $i++) {
                 if (!in_array($i, $usedBets)) { $bet = $i; break; }
@@ -343,6 +355,10 @@ class GameController extends Controller
         $elapsed = now()->diffInSeconds($party->question_started_at, true);
         $timeLeft = (int) max(0, 60 - $elapsed);
 
+        if ($party->game_type === 'buzzer') {
+            $timeLeft = 0;
+        }
+
         // Check if all active players in the party have submitted answers (answer_text and bet_points are non-null)
         $activePlayersCount = $this->getActivePlayersCount($party);
         $answersCount = PlayerAnswer::where([
@@ -396,6 +412,7 @@ class GameController extends Controller
                 'code'      => $party->code,
                 'leader_id' => $party->leader_id,
                 'status'    => $party->status,
+                'game_type' => $party->game_type,
                 'current_question_index' => $idx,
                 'total_questions'        => $totalQuestions,
             ],
@@ -458,6 +475,7 @@ class GameController extends Controller
         $party->update([
             'current_question_index' => $nextIdx,
             'question_started_at'    => now(),
+            'buzzed_player_id'        => null,
         ]);
 
         return redirect()->route('game.question', $code);
@@ -996,6 +1014,138 @@ class GameController extends Controller
         }
 
         return redirect('/play');
+    }
+
+    /**
+     * POST /game/{code}/buzz — Player presses the buzzer.
+     */
+    public function buzz(Request $request, string $code)
+    {
+        $res = $this->partyWithPlayer($code);
+        if (!$res) return response()->json(['error' => 'Unauthorized'], 401);
+        [$party, $player] = $res;
+
+        if ($party->game_type !== 'buzzer') {
+            return response()->json(['error' => 'Not a buzzer game'], 400);
+        }
+
+        // Leader cannot buzz
+        if ($party->leader_id === $player->id) {
+            return response()->json(['error' => 'Leader cannot buzz'], 400);
+        }
+
+        // Check if already buzzed
+        if ($party->buzzed_player_id !== null) {
+            return response()->json([
+                'success' => false,
+                'buzzed_player_id' => $party->buzzed_player_id,
+            ]);
+        }
+
+        // Set the buzzer
+        $party->update([
+            'buzzed_player_id' => $player->id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'buzzed_player_id' => $player->id,
+        ]);
+    }
+
+    /**
+     * POST /game/{code}/buzzer/mark-correct/{playerId} — Leader marks player correct in buzzer mode.
+     */
+    public function buzzerMarkCorrect(Request $request, string $code, int $playerId)
+    {
+        $res = $this->partyWithPlayer($code);
+        if (!$res) return response()->json(['error' => 'Unauthorized'], 401);
+        [$party, $player] = $res;
+
+        if ($party->leader_id !== $player->id) {
+            return response()->json(['error' => 'Only leader can mark answers'], 403);
+        }
+
+        if ($party->buzzed_player_id !== $playerId) {
+            return response()->json(['error' => 'This player did not buzz'], 400);
+        }
+
+        // Get current question
+        $idx = $party->current_question_index;
+        $pq = DB::table('party_questions')
+            ->where('party_id', $party->id)
+            ->where('order', $idx)
+            ->first();
+
+        if (!$pq) return response()->json(['error' => 'Question not found'], 404);
+
+        $question = Question::find($pq->question_id);
+
+        // Save player answer as correct
+        PlayerAnswer::updateOrCreate(
+            [
+                'party_id'    => $party->id,
+                'player_id'   => $playerId,
+                'question_id' => $question->id,
+            ],
+            [
+                'answer_text' => '[إجابة شفهية صحيحة 🔔]',
+                'bet_points'  => 10,
+                'is_correct'  => true,
+            ]
+        );
+
+        return redirect()->route('game.results', $code);
+    }
+
+    /**
+     * POST /game/{code}/buzzer/mark-wrong/{playerId} — Leader marks player wrong in buzzer mode.
+     */
+    public function buzzerMarkWrong(Request $request, string $code, int $playerId)
+    {
+        $res = $this->partyWithPlayer($code);
+        if (!$res) return response()->json(['error' => 'Unauthorized'], 401);
+        [$party, $player] = $res;
+
+        if ($party->leader_id !== $player->id) {
+            return response()->json(['error' => 'Only leader can mark answers'], 403);
+        }
+
+        if ($party->buzzed_player_id !== $playerId) {
+            return response()->json(['error' => 'This player did not buzz'], 400);
+        }
+
+        // Get current question
+        $idx = $party->current_question_index;
+        $pq = DB::table('party_questions')
+            ->where('party_id', $party->id)
+            ->where('order', $idx)
+            ->first();
+
+        if (!$pq) return response()->json(['error' => 'Question not found'], 404);
+
+        $question = Question::find($pq->question_id);
+
+        // Save player answer as wrong (0 points)
+        PlayerAnswer::updateOrCreate(
+            [
+                'party_id'    => $party->id,
+                'player_id'   => $playerId,
+                'question_id' => $question->id,
+            ],
+            [
+                'answer_text' => '[إجابة شفهية خاطئة ❌]',
+                'bet_points'  => 0,
+                'is_correct'  => false,
+            ]
+        );
+
+        // Clear buzzed_player_id so other players can buzz in
+        $party->update([
+            'buzzed_player_id' => null,
+        ]);
+
+        return back();
     }
 }
 

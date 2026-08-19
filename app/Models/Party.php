@@ -15,6 +15,8 @@ class Party extends Model
         'leader_id',
         'is_public',
         'status',
+        'game_type',
+        'buzzed_player_id',
         'current_question_index',
         'question_started_at',
         'decisive_phase',
@@ -29,6 +31,11 @@ class Party extends Model
     public function leader()
     {
         return $this->belongsTo(Player::class, 'leader_id');
+    }
+
+    public function buzzedPlayer()
+    {
+        return $this->belongsTo(Player::class, 'buzzed_player_id');
     }
 
     public function players()

@@ -22,6 +22,7 @@ interface PartyData {
     name: string | null;
     is_public: boolean;
     status: string;
+    game_type: 'traditional' | 'betting' | 'buzzer';
     leader_id: number;
     categories: Category[];
     players: PartyPlayer[];
@@ -173,8 +174,19 @@ export default function PartyRoom({ party, currentPlayer }: PartyRoomProps) {
 
                         {/* Card top: name + categories */}
                         <div className="shrink-0 px-4 py-3 border-b border-slate-100 bg-slate-50/60">
-                            <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
-                                🎮 <span className="truncate">{party.name ?? 'غرفة انتظار'}</span>
+                            <div className="flex items-center justify-between gap-2 font-bold text-slate-900 text-sm">
+                                <span className="truncate">🎮 {party.name ?? 'غرفة انتظار'}</span>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                                    party.game_type === 'buzzer' 
+                                        ? 'bg-rose-50 border-rose-200 text-rose-700' 
+                                        : party.game_type === 'betting'
+                                            ? 'bg-amber-50 border-amber-200 text-amber-700'
+                                            : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                }`}>
+                                    {party.game_type === 'buzzer' && 'وضع المواجهة (الباز) 🔔'}
+                                    {party.game_type === 'betting' && 'وضع المراهنات 🪙'}
+                                    {party.game_type === 'traditional' && 'الوضع التقليدي 📝'}
+                                </span>
                             </div>
                             {party.categories.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mt-1.5">

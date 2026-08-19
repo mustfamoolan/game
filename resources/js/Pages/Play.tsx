@@ -231,6 +231,7 @@ export default function Play({ player, publicParties, categories }: PlayProps) {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [partyName, setPartyName] = useState('');
     const [isPublic, setIsPublic] = useState(false);
+    const [gameType, setGameType] = useState<'traditional' | 'betting' | 'buzzer'>('traditional');
     const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
     const [createError, setCreateError] = useState('');
     const [isCreating, setIsCreating] = useState(false);
@@ -322,6 +323,7 @@ export default function Play({ player, publicParties, categories }: PlayProps) {
         router.post('/parties/create', {
             name: partyName.trim() || null,
             is_public: isPublic,
+            game_type: gameType,
             category_ids: selectedCategories,
         }, {
             onError: (errors) => {
@@ -414,7 +416,7 @@ export default function Play({ player, publicParties, categories }: PlayProps) {
                         <CardContent className="space-y-3">
                             <Button
                                 className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-md flex items-center justify-center gap-1.5 border-0 transition duration-150"
-                                onClick={() => { setIsCreateOpen(true); setCreateError(''); setSelectedCategories([]); setPartyName(''); setIsPublic(false); }}
+                                onClick={() => { setIsCreateOpen(true); setCreateError(''); setSelectedCategories([]); setPartyName(''); setIsPublic(false); setGameType('traditional'); }}
                             >
                                 <PlusCircle className="size-4 ml-1" />
                                 إنشاء بارتي
@@ -552,6 +554,40 @@ export default function Play({ player, publicParties, categories }: PlayProps) {
                                     >
                                         <Lock className="size-3.5" />
                                         خاص بالكود
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Game Type Selection */}
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold text-slate-700">نوع اللعبة</Label>
+                                <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-lg">
+                                    <button
+                                        type="button"
+                                        onClick={() => setGameType('traditional')}
+                                        className={`py-2 text-[11px] font-bold rounded-md flex items-center justify-center gap-1 transition duration-150 ${
+                                            gameType === 'traditional' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        التقليدية
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setGameType('betting')}
+                                        className={`py-2 text-[11px] font-bold rounded-md flex items-center justify-center gap-1 transition duration-150 ${
+                                            gameType === 'betting' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        المراهنات
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setGameType('buzzer')}
+                                        className={`py-2 text-[11px] font-bold rounded-md flex items-center justify-center gap-1 transition duration-150 ${
+                                            gameType === 'buzzer' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        المواجهة (الباز)
                                     </button>
                                 </div>
                             </div>

@@ -93,6 +93,9 @@ Route::post('/game/{code}/next', [GameController::class, 'nextQuestion'])->name(
 Route::get('/game/{code}/end', [GameController::class, 'end'])->name('game.end');
 Route::post('/game/{code}/restart', [GameController::class, 'restart'])->name('game.restart');
 Route::post('/game/{code}/terminate', [GameController::class, 'terminate'])->name('game.terminate');
+Route::post('/game/{code}/buzz', [GameController::class, 'buzz'])->name('game.buzz');
+Route::post('/game/{code}/buzzer/mark-correct/{playerId}', [GameController::class, 'buzzerMarkCorrect'])->name('game.buzzer.mark-correct');
+Route::post('/game/{code}/buzzer/mark-wrong/{playerId}', [GameController::class, 'buzzerMarkWrong'])->name('game.buzzer.mark-wrong');
 
 
 // Decisive Mode routes

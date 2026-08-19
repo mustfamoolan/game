@@ -34,6 +34,7 @@ class PartyController extends Controller
         $request->validate([
             'name'        => 'nullable|string|max:40',
             'is_public'   => 'required|boolean',
+            'game_type'   => 'required|string|in:traditional,betting,buzzer',
             'category_ids'=> 'required|array|min:1',
             'category_ids.*' => 'exists:categories,id',
         ]);
@@ -48,6 +49,7 @@ class PartyController extends Controller
             'name'      => $request->name,
             'leader_id' => $player->id,
             'is_public' => $request->is_public,
+            'game_type' => $request->game_type,
             'status'    => 'waiting',
         ]);
 
@@ -143,6 +145,7 @@ class PartyController extends Controller
                 'name'      => $party->name,
                 'is_public' => $party->is_public,
                 'status'    => $party->status,
+                'game_type' => $party->game_type,
                 'leader_id' => $party->leader_id,
                 'categories'=> $party->categories->map(fn($c) => [
                     'id'   => $c->id,

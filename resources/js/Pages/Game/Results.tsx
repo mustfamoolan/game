@@ -22,6 +22,7 @@ interface PartyData {
     id: number;
     code: string;
     leader_id: number;
+    game_type: 'traditional' | 'betting' | 'buzzer';
     current_question_index: number;
     total_questions: number;
 }
@@ -127,7 +128,7 @@ export default function Results({
 
     const handleNextQuestion = () => {
         if (!isLeader) return;
-        if (isLastQuestion) {
+        if (isLastQuestion && party.game_type === 'betting') {
             router.post(`/game/${party.code}/decisive/start-voting`);
         } else {
             router.post(`/game/${party.code}/next`);
@@ -234,7 +235,7 @@ export default function Results({
                                                     </span>
                                                 ) : (
                                                     <>
-                                                        {player.bet_points && (
+                                                        {party.game_type === 'betting' && player.bet_points && (
                                                             <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/50">
                                                                 راهن بـ {player.bet_points}
                                                             </span>
@@ -296,9 +297,15 @@ export default function Results({
                                 className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl flex items-center justify-center gap-2"
                             >
                                 {isLastQuestion ? (
-                                    <>
-                                        <Trophy className="size-4 text-amber-400" /> بدء وضع الحاسم 🏆
-                                    </>
+                                    party.game_type === 'betting' ? (
+                                        <>
+                                            <Trophy className="size-4 text-amber-400" /> بدء وضع الحاسم 🏆
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Trophy className="size-4 text-amber-400" /> إنهاء اللعبة وتتويج الفائز 🏆
+                                        </>
+                                    )
                                 ) : (
                                     <>بدء السؤال التالي ▶</>
                                 )}
